@@ -1,0 +1,52 @@
+{
+  "name": "logistics-academy",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:db": "bash scripts/verify-local-postgres.sh",
+    "test:e2e": "playwright test",
+    "quiz:validate": "node scripts/validate-quiz-bank.mjs",
+    "quiz:import": "node scripts/import-final-quiz.mjs",
+    "quiz:import:linked": "node scripts/import-final-quiz-linked.mjs",
+    "quiz:verify:hosted": "node scripts/verify-hosted-final-quiz.mjs",
+    "provision:admin:prepare": "node scripts/prepare-admin-provisioning-input.mjs",
+    "provision:admin": "node scripts/provision-initial-admin.mjs",
+    "auth:test:no-confirm": "node scripts/set-test-auth-confirmations.mjs",
+    "auth:verify:admin-browser": "node scripts/verify-admin-browser-login.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "@supabase/supabase-js": "^2.117.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-hook-form": "^7.89.0",
+    "react-router-dom": "^7.18.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "jsdom": "^29.1.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.1",
+    "vitest": "^5.0.3"
+  }
+}

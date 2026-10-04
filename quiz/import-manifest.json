@@ -1,0 +1,20 @@
+{
+  "course_slug": "logistics-101",
+  "assessment_kind": "final",
+  "language": "en",
+  "pass_threshold": 75,
+  "max_attempts": null,
+  "cooldown_hours": null,
+  "enabled": false,
+  "source_sha256": "acc3397a0a38883df2cdee7792d811c2388ce074c81fba7499bcbf6f0ef6333b",
+  "modules": [
+    { "position": 1, "title": "Logistics Fundamentals" },
+    { "position": 2, "title": "Trucks & Equipment" },
+    { "position": 3, "title": "Carrier Sourcing" },
+    { "position": 4, "title": "Booking and Rate Negotiation" },
+    { "position": 5, "title": "Documents" },
+    { "position": 6, "title": "Dispatch and Track and Trace" },
+    { "position": 7, "title": "Accessorials" },
+    { "position": 8, "title": "Delivery and Load Closing" }
+  ]
+}

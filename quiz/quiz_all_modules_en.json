@@ -1,0 +1,217 @@
+{
+  "title": "Knowledge Check: All 8 Modules",
+  "language": "en",
+  "total_questions": 15,
+  "questions": [
+    {
+      "id": 1,
+      "module_number": 1,
+      "module": "Logistics Fundamentals",
+      "question": "What does 3PL stand for?",
+      "options": {
+        "a": "Three Party Loading",
+        "b": "Third-Party Logistics",
+        "c": "Timed Pickup Location",
+        "d": "Total Pallet Load"
+      },
+      "correct": "b",
+      "explanation": "A 3PL is a Third-Party Logistics company that manages freight and shipping for other businesses."
+    },
+    {
+      "id": 2,
+      "module_number": 1,
+      "module": "Logistics Fundamentals",
+      "question": "What does a freight broker do?",
+      "options": {
+        "a": "Owns trucks and drives every load",
+        "b": "Builds warehouses",
+        "c": "Connects shippers with carriers to move freight, without owning the trucks",
+        "d": "Inspects customs only"
+      },
+      "correct": "c",
+      "explanation": "A broker is the middle person: the shipper has freight, the carrier has the truck, and the broker matches and manages the move."
+    },
+    {
+      "id": 3,
+      "module_number": 2,
+      "module": "Trucks & Equipment",
+      "question": "Which equipment is used for temperature-controlled freight such as frozen or fresh food?",
+      "options": {
+        "a": "Reefer",
+        "b": "Dry Van",
+        "c": "Flatbed",
+        "d": "Power Only"
+      },
+      "correct": "a",
+      "explanation": "A reefer is a refrigerated trailer that keeps freight at a set temperature."
+    },
+    {
+      "id": 4,
+      "module_number": 2,
+      "module": "Trucks & Equipment",
+      "question": "Which equipment is best for tall or oversized machinery that cannot fit in a regular trailer?",
+      "options": {
+        "a": "Dry Van",
+        "b": "Reefer",
+        "c": "Sprinter van",
+        "d": "Step Deck"
+      },
+      "correct": "d",
+      "explanation": "A step deck has a lower deck, so it can carry taller freight. A Flatbed is open for freight that needs side or top loading."
+    },
+    {
+      "id": 5,
+      "module_number": 3,
+      "module": "Carrier Sourcing",
+      "question": "Which of these is a load board used to find loads and carriers?",
+      "options": {
+        "a": "Canva",
+        "b": "DAT One",
+        "c": "Zoom",
+        "d": "Slack"
+      },
+      "correct": "b",
+      "explanation": "DAT, Truckstop, Sylectus, and Highway are the load boards used in carrier sourcing."
+    },
+    {
+      "id": 6,
+      "module_number": 3,
+      "module": "Carrier Sourcing",
+      "question": "Before selecting a carrier, what should you verify?",
+      "options": {
+        "a": "Their authority and insurance, and check for identity theft or fraud alerts",
+        "b": "Only their phone number",
+        "c": "Their favorite lane",
+        "d": "Nothing, if their rate is low"
+      },
+      "correct": "a",
+      "explanation": "Always vet the carrier: active authority, insurance, and any identity theft or fraud alerts. A cheap rate from a fake carrier can cost you the whole load."
+    },
+    {
+      "id": 7,
+      "module_number": 4,
+      "module": "Booking & Rate Negotiation",
+      "question": "Before you book a load, what must you confirm with the carrier?",
+      "options": {
+        "a": "Only the pickup city",
+        "b": "The driver's age",
+        "c": "Nothing, you can fix it later",
+        "d": "The rate, pickup and delivery times, equipment, and accessorial terms"
+      },
+      "correct": "d",
+      "explanation": "Confirm all terms before booking, then put them on the rate confirmation so there are no surprises later."
+    },
+    {
+      "id": 8,
+      "module_number": 4,
+      "module": "Booking & Rate Negotiation",
+      "question": "What is the best way to negotiate a rate with a carrier?",
+      "options": {
+        "a": "Know your target and maximum rate, stay professional, and counter with a reason",
+        "b": "Always accept the first price",
+        "c": "Argue until they hang up",
+        "d": "Offer a very low price without explaining"
+      },
+      "correct": "a",
+      "explanation": "Know your numbers first, stay respectful, and give a reason for your counter. This keeps the relationship and protects your margin."
+    },
+    {
+      "id": 9,
+      "module_number": 5,
+      "module": "Documents",
+      "question": "Which document confirms the agreed rate and terms between the broker and the carrier?",
+      "options": {
+        "a": "POD",
+        "b": "Lumper receipt",
+        "c": "Rate Confirmation",
+        "d": "COI"
+      },
+      "correct": "c",
+      "explanation": "The Rate Confirmation (ratecon) is the carrier's agreement to the rate and terms of the load."
+    },
+    {
+      "id": 10,
+      "module_number": 5,
+      "module": "Documents",
+      "question": "What does a COI (Certificate of Insurance) prove?",
+      "options": {
+        "a": "That the load was delivered",
+        "b": "That the carrier has valid insurance coverage",
+        "c": "That the driver is empty",
+        "d": "That the rate was paid"
+      },
+      "correct": "b",
+      "explanation": "The COI shows the carrier's insurance coverage and is part of the carrier packet."
+    },
+    {
+      "id": 11,
+      "module_number": 6,
+      "module": "Dispatch & Track & Trace",
+      "question": "The load is covered. What do you do on the dispatch call?",
+      "options": {
+        "a": "Ask for the driver's home address",
+        "b": "Close the load",
+        "c": "Send the invoice",
+        "d": "Confirm he is empty, get his ETA, and confirm all is set for pickup"
+      },
+      "correct": "d",
+      "explanation": "Dispatching means calling the driver to confirm he is empty, get his ETA, and make sure everything is ready for pickup."
+    },
+    {
+      "id": 12,
+      "module_number": 6,
+      "module": "Dispatch & Track & Trace",
+      "question": "You learn the truck will be late. What is the best move?",
+      "options": {
+        "a": "Tell the customer early with the new ETA and next step",
+        "b": "Wait until the delivery is missed",
+        "c": "Say nothing",
+        "d": "Cancel the load"
+      },
+      "correct": "a",
+      "explanation": "Bad news early. Customers trust you more when you tell them first, with a clear ETA and next step."
+    },
+    {
+      "id": 13,
+      "module_number": 7,
+      "module": "Accessorials",
+      "question": "What is detention?",
+      "options": {
+        "a": "A fee for a cancelled load after the truck arrives",
+        "b": "A fee for using a liftgate",
+        "c": "A fee when the driver waits too long at pickup or delivery after the free time",
+        "d": "A fee for an extra stop"
+      },
+      "correct": "c",
+      "explanation": "Detention is a waiting-time fee charged after the free time, usually 2 hours."
+    },
+    {
+      "id": 14,
+      "module_number": 7,
+      "module": "Accessorials",
+      "question": "What does TONU stand for?",
+      "options": {
+        "a": "Truck On Nearby Unloading",
+        "b": "Time Of Next Unload",
+        "c": "Transport Order Not Updated",
+        "d": "Truck Ordered Not Used"
+      },
+      "correct": "d",
+      "explanation": "TONU is Truck Ordered Not Used: the truck came, but the load was cancelled or not ready."
+    },
+    {
+      "id": 15,
+      "module_number": 8,
+      "module": "Delivery & Load Closing",
+      "question": "Why is a clean POD important before closing the load?",
+      "options": {
+        "a": "No POD means no billing, and the customer will not pay",
+        "b": "It replaces the ratecon",
+        "c": "It is only for the driver",
+        "d": "It makes the truck faster"
+      },
+      "correct": "a",
+      "explanation": "The POD is proof of delivery. Without it you cannot bill correctly, so the load cannot be closed properly."
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "status": "DRAFT_AWAITING_TRAINER_APPROVAL",
+  "course_slug": "logistics-101",
+  "assessment_kind": "knowledge_check",
+  "module_position": 1,
+  "module_title": "Logistics Fundamentals",
+  "language": "en",
+  "pass_threshold": 75,
+  "publish": false,
+  "source_of_truth": {
+    "material_language": "en",
+    "material_title": "Logistics Fundamentals",
+    "object_path": "course/994538f1-1544-4df0-aaba-f968f7addf93/en/ed9607558a8b067c.pptx",
+    "sha256": "ed9607558a8b067ce54066bde9cb2d8fa8b2801116759c626a2f6d2ff6ee8459",
+    "slides_reviewed": 7
+  },
+  "reviewer_notes": [
+    "Every question below is answerable only from the reviewed Module 1 English deck. No outside logistics knowledge was used.",
+    "Nothing here is published. A trainer must approve or edit before any student can see it.",
+    "Module 1 already has a Bisaya deck. A Bisaya knowledge check would need reviewed Bisaya wording, so it is not drafted yet."
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "slide": 2,
+      "question": "In the lesson's pizza example, which role plays the part of the consignee?",
+      "options": {
+        "a": "The customer waiting at the door for the order",
+        "b": "The rider who collects the pizza",
+        "c": "The kitchen that prepares the food",
+        "d": "The app that receives the order"
+      },
+      "correct": "a",
+      "explanation": "Slide 5 defines the consignee as the person who receives the goods, and slide 6 ends the flow at the consignee: 'Receives. Delivered!' In the pizza analogy that is the customer at the door."
+    },
+    {
+      "id": 2,
+      "slide": 3,
+      "question": "According to the lesson, which transport mode is described as the fastest but the most expensive?",
+      "options": {
+        "a": "Road",
+        "b": "Rail",
+        "c": "Ocean",
+        "d": "Air"
+      },
+      "correct": "d",
+      "explanation": "Slide 3 states that air is the 'Fastest option, but the most expensive.'"
+    },
+    {
+      "id": 3,
+      "slide": 4,
+      "question": "What does the lesson say a 3PL is compared to?",
+      "options": {
+        "a": "Buying your own truck and hiring your own drivers",
+        "b": "Hiring a moving company instead",
+        "c": "Opening your own warehouse",
+        "d": "Booking directly with an airline"
+      },
+      "correct": "b",
+      "explanation": "Slide 4 compares hiring a 3PL to 'hiring a moving company instead of buying your own truck and hiring drivers.'"
+    },
+    {
+      "id": 4,
+      "slide": 5,
+      "question": "Who is described in the lesson as the 'matchmaker' who finds a carrier for the shipper?",
+      "options": {
+        "a": "The driver",
+        "b": "The warehouse team",
+        "c": "The freight broker or 3PL",
+        "d": "The consignee"
+      },
+      "correct": "c",
+      "explanation": "Slide 5 lists the Freight Broker / 3PL as 'The matchmaker. Finds a carrier for the shipper.'"
+    },
+    {
+      "id": 5,
+      "slide": 6,
+      "question": "In the lesson's five-step shipment flow, which step is the carrier and driver?",
+      "options": {
+        "a": "Step 1",
+        "b": "Step 2",
+        "c": "Step 3",
+        "d": "Step 4"
+      },
+      "correct": "c",
+      "explanation": "Slide 6 lists: 1 Shipper, 2 Broker, 3 Carrier + Driver (pick up and drive the load), 4 Warehouse, 5 Consignee."
+    },
+    {
+      "id": 6,
+      "slide": 2,
+      "question": "Which of these is one of the five rights named in the lesson?",
+      "options": {
+        "a": "Right route",
+        "b": "Right condition",
+        "c": "Right paperwork",
+        "d": "Right carrier"
+      },
+      "correct": "b",
+      "explanation": "Slide 2 lists the 5 Rights as product, place, time, condition, and cost."
+    }
+  ]
+}
