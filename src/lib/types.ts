@@ -92,6 +92,45 @@ export type AdminTranslationResponse = {
   unchanged: boolean
 }
 
+export type ModuleDeleteImpact = {
+  moduleId: string
+  title: string
+  status: string
+  required: boolean
+  archivedAt: string | null
+  enrollmentReferences: number
+  progressRecords: number
+  materialAccessRecords: number
+  materialVersions: number
+  knowledgeChecks: number
+  questionCount: number
+  certificateReferences: number
+  /** True only for an unused draft with nothing referencing it anywhere. */
+  canPurge: boolean
+  blockers: string[]
+}
+
+export type MaterialVersionImpact = {
+  translationId: string
+  moduleId: string
+  language: string
+  version: number
+  title: string
+  objectPath: string
+  sizeBytes: number
+  published: boolean
+  archivedAt: string | null
+  /** This version is the one students are currently served. */
+  isServed: boolean
+  accessEvents: number
+  newerPublishedAvailable: number
+  olderPublishedAvailable: number
+  sharedObjectReferences: number
+  /** True when history or a shared file means archive-only. */
+  canPurge: boolean
+  mustArchive: boolean
+}
+
 export function asJson(value: unknown): Json {
   return value as Json
 }

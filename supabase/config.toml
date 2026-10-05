@@ -441,6 +441,12 @@ verify_jwt = true
 # before uploading, and the database checks it again on every call.
 verify_jwt = true
 
+[functions.delete-material-version]
+# Admin-only material retirement. Permanent deletion needs the service role to
+# remove the file from the private bucket, so the browser must go through this
+# verified function rather than calling the table directly.
+verify_jwt = true
+
 [functions.generate-certificate]
 verify_jwt = true
 

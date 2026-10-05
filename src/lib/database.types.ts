@@ -616,6 +616,7 @@ export type Database = {
       }
       module_translations: {
         Row: {
+          archived_at: string | null
           created_at: string
           created_by: string
           id: string
@@ -623,6 +624,9 @@ export type Database = {
           module_id: string
           object_path: string
           published: boolean
+          purge_pending_at: string | null
+          purge_reason: string | null
+          purge_requested_by: string | null
           sha256: string
           size_bytes: number
           summary: string
@@ -630,6 +634,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -637,6 +642,9 @@ export type Database = {
           module_id: string
           object_path: string
           published?: boolean
+          purge_pending_at?: string | null
+          purge_reason?: string | null
+          purge_requested_by?: string | null
           sha256: string
           size_bytes: number
           summary?: string
@@ -644,6 +652,7 @@ export type Database = {
           version: number
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -651,6 +660,9 @@ export type Database = {
           module_id?: string
           object_path?: string
           published?: boolean
+          purge_pending_at?: string | null
+          purge_reason?: string | null
+          purge_requested_by?: string | null
           sha256?: string
           size_bytes?: number
           summary?: string
@@ -669,6 +681,10 @@ export type Database = {
       }
       modules: {
         Row: {
+          archived_at: string | null
+          archived_from_status:
+            | Database["public"]["Enums"]["module_status"]
+            | null
           canonical_title: string | null
           course_id: string
           created_at: string
@@ -680,6 +696,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_from_status?:
+            | Database["public"]["Enums"]["module_status"]
+            | null
           canonical_title?: string | null
           course_id: string
           created_at?: string
@@ -691,6 +711,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_from_status?:
+            | Database["public"]["Enums"]["module_status"]
+            | null
           canonical_title?: string | null
           course_id?: string
           created_at?: string
@@ -1389,6 +1413,47 @@ export type Database = {
         Args: { reason: string; target_module: string }
         Returns: number
       }
+      admin_archive_material_version: {
+        Args: {
+          reason: string
+          replacement_translation?: string
+          target_translation: string
+          unpublish_material?: boolean
+        }
+        Returns: Json
+      }
+      admin_archive_module: {
+        Args: { reason: string; target_module: string }
+        Returns: Json
+      }
+      admin_edit_module: {
+        Args: {
+          apply_to_existing?: boolean
+          new_canonical_title: string
+          new_position: number
+          new_required: boolean
+          new_status: string
+          reason: string
+          target_module: string
+        }
+        Returns: Json
+      }
+      admin_edit_module_details: {
+        Args: {
+          cebaya_summary: string
+          cebaya_title: string
+          english_summary: string
+          english_title: string
+          new_canonical_title: string
+          reason: string
+          target_module: string
+        }
+        Returns: Json
+      }
+      admin_finalize_material_version_purge: {
+        Args: { caller_user: string; target_translation: string }
+        Returns: Json
+      }
       admin_financial_ledger: {
         Args: { from_date: string; through_date: string }
         Returns: {
@@ -1414,6 +1479,34 @@ export type Database = {
           module_status: Database["public"]["Enums"]["module_status"]
           title: string
         }[]
+      }
+      admin_material_version_impact: {
+        Args: { target_translation: string }
+        Returns: Json
+      }
+      admin_module_delete_impact: {
+        Args: { target_module: string }
+        Returns: Json
+      }
+      admin_purge_module: {
+        Args: { reason: string; target_module: string }
+        Returns: Json
+      }
+      admin_request_material_version_purge: {
+        Args: {
+          caller_user: string
+          reason: string
+          target_translation: string
+        }
+        Returns: Json
+      }
+      admin_restore_module: {
+        Args: {
+          reason: string
+          restore_requirement?: boolean
+          target_module: string
+        }
+        Returns: Json
       }
       admin_save_module: {
         Args: {

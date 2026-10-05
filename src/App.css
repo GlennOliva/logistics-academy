@@ -70,6 +70,24 @@ details p { margin: 1rem 0 0; color: var(--muted); }
 .check input { width: 18px; height: 18px; flex: 0 0 auto; }
 .error { color: var(--danger) !important; }
 .status { padding: .85rem 1rem; background: #e8eee5; border-left: 4px solid var(--pine); margin-top: 1rem; }
+.dangerous { border: 1px solid var(--danger); background: transparent; color: var(--danger); padding: .65rem .9rem; border-radius: 4px; cursor: pointer; }
+.dangerous:hover { background: var(--danger); color: white; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(23,37,31,.55); display: grid; place-items: center; padding: 1.25rem; z-index: 40; }
+.modal { background: var(--paper); border: 1px solid var(--line); padding: clamp(1.25rem, 4vw, 2rem); width: min(100%, 640px); max-height: 90vh; overflow-y: auto; }
+.modal h2 { margin-top: 0; }
+.modal .field textarea { display: block; width: 100%; padding: .8rem; border: 1px solid #aeb8b1; border-radius: 3px; background: white; color: var(--ink); font: inherit; }
+.modal-actions { display: flex; gap: .75rem; justify-content: flex-end; flex-wrap: wrap; margin-top: 1.5rem; }
+.modal-actions .secondary, .modal-actions .button, .modal-actions .dangerous { text-decoration: none; }
+.impact-list { background: #f6f4ee; border-left: 4px solid var(--line); padding: .85rem 1rem; margin: 1rem 0; }
+.impact-list ul { margin: .5rem 0 0; padding-left: 1.2rem; line-height: 1.6; }
+.impact-list li { margin-bottom: .25rem; }
+.warning-note { background: #fff2c6; border-left: 5px solid #d59b20; padding: .85rem 1rem; margin: 1rem 0; line-height: 1.5; }
+.display-fields { border: 1px solid #dfe3ea; border-radius: 8px; padding: 1rem 1.1rem; margin: 1rem 0; }
+.display-fields legend { font-weight: 700; padding: 0 .35rem; }
+.display-fields > p { color: #55606e; line-height: 1.5; }
+.display-fields .warning-note { margin: .6rem 0; }
+.display-fields textarea { width: 100%; resize: vertical; font: inherit; padding: .5rem .6rem; border: 1px solid #c9cfd8; border-radius: 6px; }
+.archived-flag { color: #8a6d1f; font-weight: 700; }
 .auth-switch { text-align: center; margin: 1.25rem 0 0; font-size: .9rem; }
 .page-heading { display: flex; justify-content: space-between; gap: 2rem; align-items: flex-start; }
 .dashboard-card,.empty { padding: 2rem; border: 1px solid var(--line); background: var(--paper); margin: 2rem 0; }
