@@ -41,7 +41,8 @@ create table storage.buckets (
   name text not null,
   public boolean not null default false,
   file_size_limit bigint,
-  allowed_mime_types text[]
+  allowed_mime_types text[],
+  updated_at timestamptz not null default now()
 );
 
 create table storage.objects (

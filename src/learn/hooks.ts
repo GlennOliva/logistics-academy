@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '../auth'
+import {
+  parseCertificateEligibility,
+  type CertificateEligibility,
+} from '../lib/certificateEligibility'
 import { supabase } from '../lib/supabase'
 import { useResource, type ResourceResult } from '../lib/useResource'
 import type { Enrollment, Module, ModuleProgress, ModuleTranslation, ProgressSummary, Quiz } from '../lib/types'
@@ -293,21 +297,6 @@ export function useModuleRows(enrollmentId: string | null, courseId: string | nu
   )
 }
 
-export type CertificateEligibility = {
-  config_enabled: boolean
-  enrollment_active: boolean
-  expected_module_count: number | null
-  required_module_count: number
-  required_completed: number
-  required_outstanding: number
-  outstanding_titles: string
-  required_score: number | null
-  best_final_score: number | null
-  certificate_status: string | null
-  eligible: boolean
-  blockers: string[]
-}
-
 export type CertificateIssuance = {
   certificate: Certificate | null
   enabled: boolean
@@ -353,12 +342,13 @@ export function useCertificateIssuance(
 
   const enrollmentId = enrollment?.id ?? null
 
-  const refresh = useCallback(async () => {
+const refresh = useCallback(async () => {
     if (!enrollmentId) return
     const { data, error } = await supabase.rpc('certificate_eligibility', {
       target_enrollment: enrollmentId,
     })
-    if (error || !data) {
+    const next = error ? null : parseCertificateEligibility(data)
+    if (!next) {
       setChecked(true)
       setEligible(false)
       setBlockers([
@@ -366,11 +356,10 @@ export function useCertificateIssuance(
       ])
       return
     }
-    const next = data as unknown as CertificateEligibility
     setEligibility(next)
     setEnabled(next.config_enabled)
     setEligible(next.eligible)
-    setBlockers(next.blockers ?? [])
+    setBlockers(next.blockers)
     setChecked(true)
   }, [enrollmentId])
 
