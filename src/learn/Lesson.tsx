@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { supabase } from '../lib/supabase'
+import { edgeFunctionFailure } from '../lib/edgeFunctionError'
 import { formatManilaDateTime, statusLabel } from '../lib/payment'
 import type { MaterialLinkResponse, QuizPayload, QuizResult } from '../lib/types'
 import { LANGUAGE_LABEL } from '../lib/language'
@@ -11,7 +12,7 @@ export function ModuleLesson() {
   const { moduleId, courseId } = useParams()
   const navigate = useNavigate()
 
-  const { enrollment, courseId: activeCourseId, loading } = useEnrolledCourse()
+  const { enrollment, courseId: activeCourseId, loading } = useEnrolledCourse(courseId)
   const { modules, loading: modulesLoading, reload } = useModuleRows(enrollment?.id ?? null, activeCourseId)
   const module = modules.find((row) => row.id === moduleId)
 
@@ -19,6 +20,7 @@ export function ModuleLesson() {
   const [link, setLink] = useState<MaterialLinkResponse | null>(null)
   const [linkError, setLinkError] = useState('')
   const [opening, setOpening] = useState(false)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [studying, setStudying] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
 
@@ -32,6 +34,8 @@ export function ModuleLesson() {
 
   const openMaterial = async () => {
     if (!moduleId) return
+    const pendingWindow = window.open('', '_blank')
+    if (pendingWindow) pendingWindow.opener = null
     setOpening(true)
     setLinkError('')
     setLink(null)
@@ -40,10 +44,21 @@ export function ModuleLesson() {
     })
     setOpening(false)
     if (error) {
-      setLinkError(error.message || 'This material is not available.')
+      pendingWindow?.close()
+      const failure = await edgeFunctionFailure(error, 'This material is not available right now.')
+      if (failure.status === 401) {
+        await supabase.auth.signOut({ scope: 'local' })
+        navigate('/login', { replace: true })
+        return
+      }
+      setAccessDenied(failure.status === 403)
+      setLinkError(failure.message)
       return
     }
-    setLink(data as MaterialLinkResponse)
+    const materialLink = data as MaterialLinkResponse
+    setAccessDenied(false)
+    setLink(materialLink)
+    if (pendingWindow) pendingWindow.location.replace(materialLink.url)
   }
 
   const markStudied = async () => {
@@ -135,7 +150,8 @@ export function ModuleLesson() {
                 onChange={(event) => {
                   setChosenLanguage(event.target.value)
                   setLink(null)
-                  setLinkError('')
+                   setLinkError('')
+                   setAccessDenied(false)
                 }}
               >
                 {available.map((code) => (
@@ -145,10 +161,13 @@ export function ModuleLesson() {
                 ))}
               </select>
             </Field>
-            <button className="button" onClick={openMaterial} disabled={opening}>
+            <button className="button" onClick={openMaterial} disabled={opening || accessDenied}>
               {opening ? 'Checking entitlement…' : link ? 'Get a fresh link' : 'Open secure material link'}
             </button>
             {linkError && <p className="status">{linkError}</p>}
+            {accessDenied && (
+              <p className="fine">Access was refused by the server. Refresh after your enrollment is updated; this page will not retry automatically.</p>
+            )}
             {link && (
               <div className="material-link">
                 {link.fallback && (
@@ -202,7 +221,7 @@ export function ModuleLesson() {
 export function KnowledgeCheck() {
   const { moduleId, courseId } = useParams()
   const navigate = useNavigate()
-  const { enrollment, courseId: activeCourseId } = useEnrolledCourse()
+  const { enrollment, courseId: activeCourseId } = useEnrolledCourse(courseId)
   const { modules, reload } = useModuleRows(enrollment?.id ?? null, activeCourseId)
   const module = modules.find((row) => row.id === moduleId)
 
@@ -350,7 +369,7 @@ export function KnowledgeCheck() {
 export function FinalQuiz() {
   const { courseId } = useParams()
   const navigate = useNavigate()
-  const { enrollment, courseId: activeCourseId } = useEnrolledCourse()
+  const { enrollment, courseId: activeCourseId } = useEnrolledCourse(courseId)
   const { progress } = useProgress(enrollment?.id ?? null)
   const allRequiredComplete = (progress?.required_complete ?? 0) >= (progress?.required_total ?? 1) && (progress?.required_total ?? 0) > 0
   const { certificate, enabled: certificateEnabled, working: certificateWorking, failed: certificateFailed, message: certificateMessage, issue: retryCertificate } =

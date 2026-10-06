@@ -41,6 +41,7 @@ export type EnrolledCourse = {
   enrollment: Enrollment
   courseId: string
   courseTitle: string
+  courseSlug: string
   courseStatus: string
   published_modules: number
   required_modules: number
@@ -93,7 +94,7 @@ export function useEnrolledCourses() {
     const enrollmentIds = active.map((row) => row.id)
 
     const [courseResult, snapshotResult] = await Promise.all([
-      supabase.from('courses').select('id,title,status').in('id', courseIds),
+      supabase.from('courses').select('id,slug,title,status').in('id', courseIds),
       supabase.from('enrollment_modules').select('enrollment_id,module_id,required').in('enrollment_id', enrollmentIds),
     ])
 
@@ -117,7 +118,7 @@ export function useEnrolledCourses() {
     if (moduleResult.error) return { value: [], error: moduleResult.error.message }
     if (certificateResult.error) return { value: [], error: certificateResult.error.message }
 
-    const courses = new Map(((courseResult.data ?? []) as { id: string; title: string; status: string }[]).map((row) => [row.id, row]))
+    const courses = new Map(((courseResult.data ?? []) as { id: string; slug: string; title: string; status: string }[]).map((row) => [row.id, row]))
     const publishedIds = new Set(
       ((moduleResult.data ?? []) as { id: string; status: string }[])
         .filter((row) => row.status === 'published')
@@ -135,6 +136,7 @@ export function useEnrolledCourses() {
         enrollment,
         courseId: enrollment.course_id,
         courseTitle: course?.title ?? 'Course',
+        courseSlug: course?.slug ?? '',
         courseStatus: course?.status ?? 'unknown',
         published_modules: own.filter((row) => publishedIds.has(row.module_id)).length,
         required_modules: own.filter((row) => row.required).length,

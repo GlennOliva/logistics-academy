@@ -1,6 +1,6 @@
 # Test Report
 
-Date: 2026-10-04  
+Date: 2026-10-06
 Environment: local macOS workspace, PostgreSQL 17 throwaway harness, and positively matched isolated Supabase test project
 
 ## Results
@@ -52,6 +52,17 @@ Environment: local macOS workspace, PostgreSQL 17 throwaway harness, and positiv
 | Real outbound email | NOT RUN | Provider, verified sender, and approved production origin are unavailable |
 | Hosted quiz import path preflight | PASS | Initial invocation typo failed before npm/database access; persisted files contained no typo and pre-retry SQL found no test user/attempt residue |
 | Post-change full hosted verifier | PASS | 72/72 after resubmission RPC fix; cleanup left zero disposable users/submissions/revisions, owner admin intact, imported final disabled, sales off, and exactly two approved methods enabled |
+| Material-access failure reproduction | PASS | Hosted RPC returned SQLSTATE 42703: `enrollments.created_at` does not exist. The deployed v6 function converted that to HTTP 403 `{ "error": "Unable to open this material" }`; no denial audit row could commit. Inspection also found the write-producing RPC incorrectly declared `STABLE`. |
+| Affected material records | PASS | Module `994538f1-1544-4df0-aaba-f968f7addf93` belongs to course `3bc1e477-8736-42f2-8a1d-e5eeda290f39`, is published/unarchived at curriculum v1, has live English/Bisaya versions, and every selected private Storage object exists. All 22 active snapshots are required and match v1. No record repair was required. |
+| Material-access migrations | PASS | Only pending migrations `202610060028` and `202610060029` were pushed without reset; local/remote histories match. The final RPC is `VOLATILE`, course-scoped, snapshot-authorized, and service-role-only. |
+| Material-access Edge Function | PASS | `course-material-access` version 7 deployed to positively matched project `dvwwnqoujtctlfvwcrgf`; JWT verification remains enabled and Storage remains private. |
+| Local authenticated material browser probe | PASS | 13/13: English and Bisaya return distinct signed PDF links and real PDF bytes; refresh/repeat works; three clicks reserve three tabs; anonymous is 401; another signed-in account is 403 with the safe reason; lesson sends zero `create_order` calls; fixtures removed. |
+| Hosted Vercel material browser probe | PARTIAL PASS | 12/13 against `https://logistics-academy-orpin.vercel.app`: both languages, signed bytes, refresh/repeat, anonymous/cross-account denial, and zero `create_order` requests pass. Popup reservation is absent because the current frontend bundle predates this fix. Frontend deployment NOT RUN: no Vercel credentials are available on this machine. |
+| `create_order` investigation | PASS | Only `Checkout` mounts the RPC. Actual entitled-learner response is HTTP 400 `This account already has access to Logistics 101; contact support instead of paying again`; before/after order counts are equal. The learning route issued zero requests. Checkout now redirects entitled learners before invocation. |
+| Material-access focused unit tests | PASS | Safe Edge Function error extraction covers JSON 403 details and non-JSON 500 fallback; full Vitest result 34/34. |
+| Material-access local quality gates | PASS | Typecheck, ESLint, production build, and `git diff --check` pass. Existing >500 kB Vite chunk warning remains non-blocking. |
+| Linked database lint after repair | MATERIAL FUNCTION PASS | `issue_material_access` has no remaining lint finding. Existing unrelated findings remain in certificate eligibility and admin lifecycle helpers. |
+| Supabase Edge Function log retrieval | NOT RUN | CLI 2.119 exposes function versions/deployment but no log command, and Dashboard/API log credentials were unavailable. Version 7 now emits sanitized denial/signing/check messages without tokens, signed URLs, user IDs, or object paths. |
 
 ## Hosted Runtime Scope
 

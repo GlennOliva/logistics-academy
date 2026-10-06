@@ -902,13 +902,20 @@ type PaymentMethod = {
 };
 function Checkout() {
   const { session } = useAuth();
+  const navigate = useNavigate();
+  const { courses: enrolledCourses, loading: enrollmentsLoading } = useEnrolledCourses();
   const [order, setOrder] = useState<Order | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
-    if (!session) return;
+    if (!session || enrollmentsLoading) return;
+    const existing = enrolledCourses.find((course) => course.courseSlug === "logistics-101");
+    if (existing) {
+      navigate(`/learn/${existing.courseId}`, { replace: true });
+      return;
+    }
     void (async () => {
       const { data, error } = await supabase.rpc("create_order", {
         course_slug: "logistics-101",
@@ -927,7 +934,7 @@ function Checkout() {
         .order("display_name");
       setMethods((methodResult.data ?? []) as PaymentMethod[]);
     })();
-  }, [session]);
+  }, [enrolledCourses, enrollmentsLoading, navigate, session]);
   const selectedMethod = methods.find(
     (method) => method.id === selectedMethodId,
   );

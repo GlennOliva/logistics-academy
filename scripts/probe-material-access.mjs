@@ -93,6 +93,32 @@ try {
   if (granted.error) throw new Error(`enrollment grant failed: ${granted.error.message}`)
   log('disposable enrollment granted')
 
+  const studentToken = (await client().auth.signInWithPassword({ email: studentEmail, password })).data.session.access_token
+
+  // create_order belongs only to checkout. With sales disabled it returns the
+  // authoritative checkout refusal and creates no order; opening a lesson must
+  // not call it at all.
+  const orderCountBefore = await adminApi.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', studentId)
+  const orderResponse = await fetch(`${url}/rest/v1/rpc/create_order`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${studentToken}`, apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ course_slug: 'logistics-101' }),
+  })
+  const orderBody = await orderResponse.json().catch(() => ({}))
+  const orderCountAfter = await adminApi.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', studentId)
+  record(
+    'disabled checkout returns its real refusal without creating an order',
+    orderResponse.status === 400 && orderCountBefore.count === orderCountAfter.count,
+    `HTTP ${orderResponse.status}: ${String(orderBody.message ?? 'no safe error returned')}`,
+  )
+
+  const anonymousResponse = await fetch(`${url}/functions/v1/course-material-access`, {
+    method: 'POST',
+    headers: { apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ moduleId: MODULE_1, language: 'en' }),
+  })
+  record('an anonymous request is denied', anonymousResponse.status === 401, `HTTP ${anonymousResponse.status}`)
+
   // A signed-in student with no enrollment must not receive a link.
   const outsiderToken = (await client().auth.signInWithPassword({ email: outsiderEmail, password })).data.session.access_token
   const outsiderResponse = await fetch(`${url}/functions/v1/course-material-access`, {
@@ -100,18 +126,34 @@ try {
     headers: { Authorization: `Bearer ${outsiderToken}`, apikey: key },
     body: JSON.stringify({ moduleId: MODULE_1, language: 'en' }),
   })
+  const outsiderBody = await outsiderResponse.clone().json().catch(() => ({}))
   record(
     'a signed-in user without an enrollment cannot obtain material',
     outsiderResponse.status === 403,
-    `HTTP ${outsiderResponse.status}`,
+    `HTTP ${outsiderResponse.status}: ${String(outsiderBody.error ?? 'no safe error returned')}`,
   )
 
   browser = await chromium.launch()
   const context = await browser.newContext()
   const page = await context.newPage()
   const consoleErrors = []
+  const materialResponses = []
+  let createOrderRequests = 0
+  let openedTabs = 0
+  context.on('page', (opened) => {
+    if (opened !== page) openedTabs += 1
+  })
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+  page.on('response', async (response) => {
+    if (!response.url().endsWith('/functions/v1/course-material-access')) return
+    const requestBody = response.request().postDataJSON()
+    const responseBody = await response.json().catch(() => ({}))
+    materialResponses.push({ requestBody, status: response.status(), error: responseBody.error ?? null })
+  })
+  page.on('request', (request) => {
+    if (request.url().includes('/rpc/create_order')) createOrderRequests += 1
   })
 
   await page.goto(`${origin}/login`, { waitUntil: 'networkidle' })
@@ -134,14 +176,14 @@ try {
   const enHref = await page.locator('.material-link a.button').first().getAttribute('href').catch(() => null)
   const enLabel = (await page.locator('.material-link a.button').first().textContent().catch(() => ''))?.trim()
   record('enrolled student obtains the English material link', Boolean(enHref?.includes('token=')), enLabel ?? 'no link')
-  record('PowerPoint is labelled as a download, not inline preview', enLabel === 'Download PowerPoint file', enLabel ?? '')
+  record('published PDF is labelled for browser viewing', enLabel === 'Open material', enLabel ?? '')
 
   // The signed URL must actually serve the deck.
   if (enHref) {
     const fetched = await fetch(enHref)
     const bytes = new Uint8Array(await fetched.arrayBuffer())
-    const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04
-    record('the signed URL serves the real PPTX bytes', fetched.status === 200 && isZip, `HTTP ${fetched.status}, ${bytes.length} bytes`)
+    const isPdf = new TextDecoder().decode(bytes.subarray(0, 5)) === '%PDF-'
+    record('the signed URL serves the real PDF bytes', fetched.status === 200 && isPdf, `HTTP ${fetched.status}, ${bytes.length} bytes`)
   }
 
   // Bisaya material. Changing the language deliberately clears the previous
@@ -155,7 +197,18 @@ try {
     record('language selection returns a different object', true, 'en and ceb differ')
   }
 
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.click('button:has-text("Open secure material link")')
+  await page.waitForTimeout(1500)
+  const refreshedHref = await page.locator('.material-link a.button').first().getAttribute('href').catch(() => null)
+  record('refresh and repeat access succeeds', Boolean(refreshedHref?.includes('token=')), 'English requested again')
+  record('successful clicks reserve a browser tab', openedTabs >= 3, `${openedTabs} tab(s) opened`)
+  record('opening lessons never calls create_order', createOrderRequests === 0, `${createOrderRequests} request(s)`)
+
   record('no unexpected browser console errors', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | '))
+  for (const response of materialResponses) {
+    log('material request/response', `${JSON.stringify(response.requestBody)} -> HTTP ${response.status}: ${response.error ?? 'success'}`)
+  }
 
   const failed = results.filter((entry) => !entry.ok)
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`)

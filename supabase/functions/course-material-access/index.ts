@@ -13,6 +13,7 @@ function cors(origin: string | null) {
 }
 
 Deno.serve(async (request) => {
+  const requestId = crypto.randomUUID()
   const headers = cors(request.headers.get('origin'))
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers })
   if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405, headers })
@@ -61,14 +62,31 @@ Deno.serve(async (request) => {
     // lets the UI explain why access is unavailable instead of showing a
     // generic failure.
     if (!entitlement.allowed) {
+      console.warn('Material access denied', { requestId, moduleId, language, reason: entitlement.error ?? 'Access denied' })
       return Response.json({ error: entitlement.error ?? 'Access denied' }, { status: 403, headers })
     }
+
+    const format = entitlement.objectPath.endsWith('.pptx')
+      ? 'pptx'
+      : entitlement.objectPath.endsWith('.ppt')
+        ? 'ppt'
+        : entitlement.objectPath.endsWith('.pdf')
+          ? 'pdf'
+          : 'unknown'
+    const downloadName = `${entitlement.title.replace(/[^A-Za-z0-9._ -]/g, '_').slice(0, 100) || 'course-material'}.${format}`
 
     const signed = await service.storage.from('course-materials').createSignedUrl(
       entitlement.objectPath,
       SIGNED_URL_SECONDS,
+      format === 'ppt' || format === 'pptx' ? { download: downloadName } : undefined,
     )
-    if (signed.error) throw signed.error
+    if (signed.error) {
+      console.error('Material signing failed', { requestId, moduleId, language, reason: signed.error.message })
+      return Response.json(
+        { error: 'The published material file could not be opened. Please contact the academy.' },
+        { status: 503, headers },
+      )
+    }
 
     return Response.json(
       {
@@ -79,13 +97,7 @@ Deno.serve(async (request) => {
         requestedLanguage: entitlement.requestedLanguage,
         // Derived from the stored object path so the UI can label a PowerPoint
         // download without guessing from the signed URL.
-        format: entitlement.objectPath.endsWith('.pptx')
-          ? 'pptx'
-          : entitlement.objectPath.endsWith('.ppt')
-            ? 'ppt'
-            : entitlement.objectPath.endsWith('.pdf')
-              ? 'pdf'
-              : 'unknown',
+        format,
         // The UI must say when the requested language was unavailable rather than
         // quietly presenting English as if it were Bisaya.
         fallback: entitlement.fallback,
@@ -95,7 +107,11 @@ Deno.serve(async (request) => {
       { headers },
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to open this material'
-    return Response.json({ error: message }, { status: 403, headers })
+    const reason = error instanceof Error ? error.message : 'Unknown material access error'
+    console.error('Material access check failed', { requestId, reason })
+    return Response.json(
+      { error: 'Material access could not be checked right now. Please try again.' },
+      { status: 500, headers },
+    )
   }
 })

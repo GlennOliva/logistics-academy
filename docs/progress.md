@@ -1,8 +1,10 @@
 # Progress Log
 
-Last updated: 2026-10-04
+Last updated: 2026-10-06
 
 ## Current Status
+
+The student material-access outage is fixed in the linked Supabase project. `issue_material_access` is writable again, resolves the enrollment for the requested module's course, and uses snapshot membership without rewriting progress or curriculum history. `course-material-access` version 7 is deployed. A disposable learner passed English, Bisaya, refresh/repeat, signed URL, cross-account denial, anonymous denial, popup, and no-checkout-request checks through the local UI; the Vercel-hosted UI passed the backend checks but still needs the frontend bundle deployed for the new one-click popup/error handling because Vercel credentials were unavailable locally.
 
 Day 1, Day 2, and all currently feasible owner-independent Day 3 work are implemented. Migrations `202610030001` through `202610040013` are applied to the isolated hosted test project without reset or migration-history repair. The development admin and approved 15-question final are provisioned. Student registration is operational with owner-approved test-only auto-confirm while email delivery is deferred. GCash and MariBank are configured and their full manual-review lifecycle is verified; Maya and course sales remain disabled. Technical readiness is advanced but not release-ready.
 
@@ -27,6 +29,7 @@ Day 1, Day 2, and all currently feasible owner-independent Day 3 work are implem
 | Student registration | PASS, TEST-ONLY MODE | Initial browser signup failed 429 on the built-in two-emails/hour quota and created no account. Test confirmation was disabled by explicit owner instruction; subsequent signup/session, profile, two policy acknowledgements, sign-out, password login, and `/dashboard` pass with zero roles |
 | Password recovery / outbound email | UNAVAILABLE | UI explicitly disables recovery while `VITE_EMAIL_DELIVERY_ENABLED=false`; domain/sender/mailbox/origin remain deferred and worker provider values are absent |
 | Production deployment | Prohibited | No production environment/domain was authorized |
+| Student material access repair | PASS, BACKEND DEPLOYED | Linked project `dvwwnqoujtctlfvwcrgf`; migrations `028`/`029`, Edge Function v7, local browser 13/13; hosted browser backend behavior 12/13 with only the not-yet-deployed popup UX check failing |
 
 ## Implemented Scope
 
@@ -68,6 +71,9 @@ Day 1, Day 2, and all currently feasible owner-independent Day 3 work are implem
 22. Registration hid Auth's `over_email_send_rate_limit` 429 behind a generic error and frontend password validation did not match hosted letters/digits policy; both now provide accurate, preflighted feedback.
 23. Password recovery claimed an email was sent even when delivery was unavailable; the test UI now marks the capability unavailable and sends no recovery request.
 24. Payment-proof resubmission sent an extra `target_order_id` argument to the revision RPC, preventing PostgREST from resolving the function; the Edge Function now sends the exact trusted signature and the hosted replacement flow passes.
+25. The lifecycle migration changed the audit-writing `issue_material_access` RPC to `STABLE` and selected enrollments using nonexistent `enrollments.created_at`; every request failed before a link could be signed. The RPC is `VOLATILE`, orders by `granted_at`, and scopes enrollment selection to the requested module's course.
+26. The learner screen discarded safe Edge Function response bodies and required a second click after signing. It now extracts safe JSON errors, clears expired local sessions, stops retrying permanent 403 responses, reserves a tab during the user gesture, views PDFs, and downloads PPT/PPTX files.
+27. Mounting checkout always called `create_order`, including for an already entitled learner. Checkout now waits for enrollment resolution and sends entitled learners directly to their course without creating or requesting an order.
 
 ## Evidence Rules
 
