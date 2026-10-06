@@ -4,7 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 // The supplied template prints "all 8 modules" as static artwork, so refuse to
 // stamp a certificate for a curriculum of a different length.
-const TEMPLATE_MODULE_COUNT = 8
+const TEMPLATE_MODULE_COUNT = 9
 
 // Colours sampled from the supplied template's own content stream.
 const NAVY = rgb(30 / 255, 58 / 255, 95 / 255)
