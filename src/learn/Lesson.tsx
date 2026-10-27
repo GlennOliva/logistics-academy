@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { supabase } from '../lib/supabase'
 import { edgeFunctionFailure } from '../lib/edgeFunctionError'
 import { formatManilaDateTime, statusLabel } from '../lib/payment'
-import type { MaterialLinkResponse, QuizPayload, QuizResult } from '../lib/types'
+import { asJson, type MaterialLinkResponse, type QuizPayload, type QuizResult, type QuizSaveResult } from '../lib/types'
 import { LANGUAGE_LABEL } from '../lib/language'
 import { useCertificateIssuance, useEnrolledCourse, useModuleRows, useProgress } from './hooks'
 
@@ -377,31 +377,87 @@ export function FinalQuiz() {
   const certificateEnabledFromContext = useCallback(() => certificateEnabled, [certificateEnabled])
 
   const [quizId, setQuizId] = useState<string | null>(null)
-  const [attempts, setAttempts] = useState<{ attempt_number: number; score: number | null; passed: boolean | null; state: string }[]>([])
+  const [attempts, setAttempts] = useState<{ id: string; attempt_number: number; score: number | null; passed: boolean | null; state: string }[]>([])
   const [payload, setPayload] = useState<QuizPayload | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [currentPosition, setCurrentPosition] = useState(0)
+  const [saveRevision, setSaveRevision] = useState(0)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'retry'>('idle')
   const [result, setResult] = useState<QuizResult | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loadingPage, setLoadingPage] = useState(true)
+  const latestRevision = useRef(0)
+
+  const loadAttempts = useCallback(async (targetQuiz: string) => {
+    if (!enrollment) return
+    const { data: history, error } = await supabase
+      .from('quiz_attempts')
+      .select('id,attempt_number,score,passed,state')
+      .eq('enrollment_id', enrollment.id)
+      .eq('quiz_id', targetQuiz)
+      .eq('kind', 'final')
+      .order('attempt_number', { ascending: false })
+    if (error) {
+      setMessage(error.message)
+      return
+    }
+    setAttempts((history ?? []) as typeof attempts)
+  }, [enrollment])
+
+  const openAttempt = useCallback(async (attemptId: string) => {
+    setBusy(true)
+    setMessage('')
+    const { data, error } = await supabase.rpc('quiz_payload', { target_attempt: attemptId })
+    setBusy(false)
+    if (error) {
+      setMessage(error.message)
+      if (quizId) await loadAttempts(quizId)
+      return
+    }
+    const nextPayload = data as unknown as QuizPayload
+    if (nextPayload.state === 'scored') {
+      setPayload(null)
+      setResult({
+        attemptId: nextPayload.attemptId,
+        score: nextPayload.score,
+        passed: nextPayload.passed,
+        alreadyScored: true,
+      })
+      if (quizId) await loadAttempts(quizId)
+      return
+    }
+    const position = Math.min(
+      Math.max(nextPayload.currentPosition ?? 0, 0),
+      Math.max(nextPayload.questions.length - 1, 0),
+    )
+    latestRevision.current = nextPayload.draftRevision ?? 0
+    setPayload(nextPayload)
+    setAnswers(nextPayload.savedAnswers ?? {})
+    setCurrentPosition(position)
+    setSaveRevision(0)
+    setSaveStatus('saved')
+    setResult(null)
+  }, [loadAttempts, quizId])
 
   useEffect(() => {
     if (!enrollment || !activeCourseId) return
+    let current = true
     void (async () => {
-      const { data: quiz } = await supabase
+      const { data: quiz, error } = await supabase
         .from('quizzes')
         .select('id')
         .eq('course_id', activeCourseId)
         .eq('kind', 'final')
         .maybeSingle()
+      if (!current) return
+      if (error) setMessage(error.message)
       setQuizId(quiz?.id ?? null)
-      const { data: history } = await supabase
-        .from('quiz_attempts')
-        .select('attempt_number,score,passed,state')
-        .eq('kind', 'final')
-        .order('attempt_number', { ascending: false })
-      setAttempts((history ?? []) as typeof attempts)
+      if (quiz?.id) await loadAttempts(quiz.id)
+      if (current) setLoadingPage(false)
     })()
-  }, [activeCourseId, enrollment])
+    return () => { current = false }
+  }, [activeCourseId, enrollment, loadAttempts])
 
   const start = useCallback(async () => {
     if (!quizId) return
@@ -416,16 +472,98 @@ export function FinalQuiz() {
       setMessage(error.message)
       return
     }
-    const { data, error: payloadError } = await supabase.rpc('quiz_payload', { target_attempt: attemptId })
-    setBusy(false)
-    if (payloadError) {
-      setMessage(payloadError.message)
-      return
+    await openAttempt(attemptId)
+    await loadAttempts(quizId)
+  }, [loadAttempts, openAttempt, quizId])
+
+  useEffect(() => {
+    if (!payload || saveRevision === 0 || payload.state !== 'in_progress') return
+    const revision = saveRevision
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const { data, error } = await supabase.rpc('save_quiz_progress', {
+          target_attempt: payload.attemptId,
+          answers: asJson(Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId }))),
+          current_position: currentPosition,
+          client_revision: revision,
+        })
+        if (revision !== latestRevision.current) return
+        if (error) {
+          setSaveStatus('retry')
+          setMessage('Quiz progress could not be saved. Your selections are still here; retry before leaving.')
+          return
+        }
+        const saved = data as unknown as QuizSaveResult
+        latestRevision.current = Math.max(latestRevision.current, saved.revision)
+        if (saved.state === 'scored') {
+          setMessage('This attempt was submitted in another tab. Its stored result has been refreshed.')
+          await openAttempt(payload.attemptId)
+          return
+        }
+        if (!saved.saved) {
+          setSaveStatus('retry')
+          setMessage('Newer progress was saved in another tab. Your current selections were kept here; retry to save them.')
+          return
+        }
+        setSaveStatus('saved')
+        setMessage('')
+      })()
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [answers, currentPosition, openAttempt, payload, saveRevision])
+
+  const queueSave = useCallback((nextAnswers: Record<string, string>, nextPosition: number) => {
+    const revision = latestRevision.current + 1
+    latestRevision.current = revision
+    setAnswers(nextAnswers)
+    setCurrentPosition(nextPosition)
+    setSaveStatus('saving')
+    setSaveRevision(revision)
+  }, [])
+
+  const retrySave = useCallback(() => {
+    const revision = latestRevision.current + 1
+    latestRevision.current = revision
+    setSaveStatus('saving')
+    setSaveRevision(revision)
+  }, [])
+
+  const hasUnsavedProgress = Boolean(payload && (saveStatus === 'saving' || saveStatus === 'retry'))
+  useEffect(() => {
+    if (!hasUnsavedProgress) return
+    const warning = 'Quiz progress is not saved yet. Leave this page anyway?'
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = warning
     }
-    setPayload(data as QuizPayload)
-    setAnswers({})
-    setResult(null)
-  }, [quizId])
+    const linkClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (target?.closest('a[href]') && !window.confirm(warning)) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+    const historyChange = () => {
+      if (!window.confirm(warning)) window.history.forward()
+    }
+    window.addEventListener('beforeunload', beforeUnload)
+    document.addEventListener('click', linkClick, true)
+    window.addEventListener('popstate', historyChange)
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload)
+      document.removeEventListener('click', linkClick, true)
+      window.removeEventListener('popstate', historyChange)
+    }
+  }, [hasUnsavedProgress])
+
+  useEffect(() => {
+    if (!payload || hasUnsavedProgress) return
+    const refreshStatus = () => {
+      if (document.visibilityState === 'visible') void openAttempt(payload.attemptId)
+    }
+    document.addEventListener('visibilitychange', refreshStatus)
+    return () => document.removeEventListener('visibilitychange', refreshStatus)
+  }, [hasUnsavedProgress, openAttempt, payload])
 
   const submit = useCallback(async () => {
     if (!payload) return
@@ -438,12 +576,18 @@ export function FinalQuiz() {
     setBusy(false)
     if (error) {
       setMessage(error.message)
+      await openAttempt(payload.attemptId)
       return
     }
     setResult(data as QuizResult)
-  }, [answers, payload])
+    setSaveStatus('saved')
+    setPayload(null)
+    if (quizId) await loadAttempts(quizId)
+  }, [answers, loadAttempts, openAttempt, payload, quizId])
 
   if (!enrollment) return <div className="page"><h1>No active enrollment</h1></div>
+
+  if (loadingPage) return <div className="page"><p className="status">Loading final quiz…</p></div>
 
   if (!quizId) {
     return (
@@ -462,6 +606,9 @@ export function FinalQuiz() {
 
   const answered = Object.keys(answers).length
   const required = payload?.questions.length ?? 0
+  const activeAttempt = attempts.find((attempt) => attempt.state === 'in_progress')
+  const hasScoredAttempt = attempts.some((attempt) => attempt.state === 'scored')
+  const currentQuestion = payload?.questions[currentPosition]
 
   return (
     <div className="page narrow">
@@ -479,7 +626,7 @@ export function FinalQuiz() {
           <h2>Your attempts</h2>
           <div className="table-list">
             {attempts.map((attempt) => (
-              <article key={attempt.attempt_number}>
+              <article key={attempt.id}>
                 <div>
                   <strong>Attempt {attempt.attempt_number}</strong>
                   <p>{statusLabel(attempt.state)}</p>
@@ -488,6 +635,11 @@ export function FinalQuiz() {
                   {attempt.score ?? '—'}%
                   <small>{attempt.passed === null ? 'practice' : attempt.passed ? 'passed' : 'not passed'}</small>
                 </div>
+                {attempt.state === 'in_progress' && (
+                  <button className="secondary" onClick={() => void openAttempt(attempt.id)} disabled={busy}>
+                    Resume
+                  </button>
+                )}
               </article>
             ))}
           </div>
@@ -498,7 +650,7 @@ export function FinalQuiz() {
 
       {!payload && !result && (
         <button className="button" onClick={start} disabled={busy}>
-          {busy ? 'Starting…' : 'Start final quiz'}
+          {busy ? (activeAttempt ? 'Resuming…' : 'Starting…') : activeAttempt ? 'Resume quiz' : hasScoredAttempt ? 'Retake final quiz' : 'Start final quiz'}
         </button>
       )}
 
@@ -513,28 +665,41 @@ export function FinalQuiz() {
             Attempt {payload.attemptNumber} · pass mark {payload.passThreshold ?? '—'}% · {answered} of{' '}
             {required} answered
           </p>
-          {payload.questions.map((question, index) => (
-            <fieldset key={question.id} className="quiz-question">
+          <p className={`save-state ${saveStatus === 'retry' ? 'error' : ''}`} role="status">
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'retry' ? 'Not saved' : ''}
+            {saveStatus === 'retry' && <button type="button" className="secondary" onClick={retrySave}>Retry save</button>}
+          </p>
+          {currentQuestion && (
+            <fieldset key={currentQuestion.id} className="quiz-question">
               <legend>
-                {index + 1}. {question.prompt}
+                {currentPosition + 1}. {currentQuestion.prompt}
               </legend>
-              {question.options.map((option) => (
+              {currentQuestion.options.map((option) => (
                 <label key={option.id} className="check">
                   <input
                     type="radio"
-                    name={question.id}
+                    name={currentQuestion.id}
                     value={option.id}
-                    checked={answers[question.id] === option.id}
-                    onChange={() => setAnswers((current) => ({ ...current, [question.id]: option.id }))}
+                    checked={answers[currentQuestion.id] === option.id}
+                    onChange={() => queueSave({ ...answers, [currentQuestion.id]: option.id }, currentPosition)}
                   />
                   {option.label}
                 </label>
               ))}
             </fieldset>
-          ))}
-          <button className="button" disabled={busy || answered !== required}>
-            {busy ? 'Submitting…' : 'Submit final quiz'}
-          </button>
+          )}
+          <div className="quiz-actions">
+            <button type="button" className="secondary" disabled={currentPosition === 0} onClick={() => queueSave(answers, currentPosition - 1)}>
+              Previous
+            </button>
+            {currentPosition < required - 1 ? (
+              <button type="button" className="button" onClick={() => queueSave(answers, currentPosition + 1)}>Next</button>
+            ) : (
+              <button className="button" disabled={busy || answered !== required}>
+                {busy ? 'Submitting…' : 'Submit final quiz'}
+              </button>
+            )}
+          </div>
         </form>
       )}
 

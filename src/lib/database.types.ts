@@ -1067,6 +1067,9 @@ export type Database = {
         Row: {
           attempt_number: number
           correct_count: number | null
+          current_question_position: number
+          draft_revision: number
+          draft_updated_at: string | null
           enrollment_id: string
           id: string
           kind: Database["public"]["Enums"]["quiz_kind"]
@@ -1083,6 +1086,9 @@ export type Database = {
         Insert: {
           attempt_number: number
           correct_count?: number | null
+          current_question_position?: number
+          draft_revision?: number
+          draft_updated_at?: string | null
           enrollment_id: string
           id?: string
           kind: Database["public"]["Enums"]["quiz_kind"]
@@ -1099,6 +1105,9 @@ export type Database = {
         Update: {
           attempt_number?: number
           correct_count?: number | null
+          current_question_position?: number
+          draft_revision?: number
+          draft_updated_at?: string | null
           enrollment_id?: string
           id?: string
           kind?: Database["public"]["Enums"]["quiz_kind"]
@@ -1867,6 +1876,15 @@ export type Database = {
       start_quiz_attempt: {
         Args: { attempt_language: string; target_quiz: string }
         Returns: string
+      }
+      save_quiz_progress: {
+        Args: {
+          answers: Json
+          client_revision: number
+          current_position: number
+          target_attempt: string
+        }
+        Returns: Json
       }
       submit_quiz_attempt: {
         Args: { answers: Json; target_attempt: string }

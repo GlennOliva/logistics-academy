@@ -151,6 +151,10 @@ footer p { color: #aebbb4; }
 .quiz-question { border-top: 1px solid var(--line); padding: 1.25rem 0; }
 .quiz-question legend { font-weight: 700; padding: 0; }
 .quiz-question .check { margin: .5rem 0; }
+.quiz-actions,.save-state { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.quiz-actions { justify-content: space-between; margin-top: 1rem; }
+.save-state { min-height: 2.5rem; color: var(--muted); }
+.save-state .secondary { padding: .4rem .7rem; }
 .quiz-result { border-left: 5px solid var(--pine); background: #e8eee5; padding: 1.25rem; margin: 2rem 0; }
 .quiz-result.failed { border-left-color: var(--danger); background: #fbe6e4; }
 

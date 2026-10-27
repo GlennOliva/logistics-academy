@@ -66,7 +66,16 @@ export type QuizPayload = {
   score: number | null
   passed: boolean | null
   passThreshold: number | null
+  currentPosition: number
+  draftRevision: number
+  savedAnswers: Record<string, string>
   questions: QuizQuestion[]
+}
+
+export type QuizSaveResult = {
+  saved: boolean
+  state: 'in_progress' | 'scored'
+  revision: number
 }
 
 export type QuizResult = {

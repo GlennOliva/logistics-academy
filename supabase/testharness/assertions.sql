@@ -483,10 +483,11 @@ select harness.check(
 
 select public.start_quiz_attempt('a1111111-1111-4111-8111-111111111111', 'en') as kc_attempt_one \gset
 
-select harness.expect_error(
-  'select public.start_quiz_attempt(''a1111111-1111-4111-8111-111111111111'', ''en'')',
-  'already in progress',
-  'a second concurrent attempt is refused');
+select public.start_quiz_attempt('a1111111-1111-4111-8111-111111111111', 'en') as kc_attempt_one_again \gset
+select harness.check(
+  :'kc_attempt_one_again'::uuid = :'kc_attempt_one'::uuid
+  and (select count(*) from public.quiz_attempts where quiz_id = 'a1111111-1111-4111-8111-111111111111' and state = 'in_progress') = 1,
+  'starting twice returns the same open attempt without incrementing it');
 
 select harness.check(
   not exists (
@@ -578,6 +579,31 @@ select harness.check(
   (select attempt_number from public.quiz_attempts where id = :'final_three') = 3,
   'attempt numbering is per enrollment and quiz, not per language');
 
+select public.start_quiz_attempt('b2222222-2222-4222-8222-222222222222', 'en') as final_three_again \gset
+select public.save_quiz_progress(:'final_three',
+  jsonb_build_array(
+    jsonb_build_object('questionId','d2222222-2222-4222-8222-222222222221','optionId',to_jsonb(:'key_final_one'::uuid)),
+    jsonb_build_object('questionId','d2222222-2222-4222-8222-222222222222','optionId',to_jsonb(:'key_final_two'::uuid))
+  ), 1, 1) as final_three_saved \gset
+
+select harness.check(
+  :'final_three_again'::uuid = :'final_three'::uuid
+  and (public.quiz_payload(:'final_three') ->> 'attemptNumber')::integer = 3
+  and (public.quiz_payload(:'final_three') ->> 'currentPosition')::integer = 1
+  and (select count(*) from jsonb_object_keys(public.quiz_payload(:'final_three') -> 'savedAnswers')) = 2
+  and (public.quiz_payload(:'final_three') -> 'questions' -> 0 ->> 'id') = 'd2222222-2222-4222-8222-222222222221',
+  'a practice attempt after a pass resumes the same id, number, ordered questions, answers and position');
+
+select public.save_quiz_progress(:'final_three',
+  jsonb_build_array(
+    jsonb_build_object('questionId','d2222222-2222-4222-8222-222222222221','optionId',(select o.id from public.question_options o where o.question_id = 'd2222222-2222-4222-8222-222222222221' and o.position = 2))
+  ), 0, 1) as stale_save \gset
+
+select harness.check(
+  (:'stale_save'::json ->> 'saved') = 'false'
+  and (select count(*) from jsonb_object_keys(public.quiz_payload(:'final_three') -> 'savedAnswers')) = 2,
+  'an older autosave cannot overwrite a newer draft');
+
 select public.submit_quiz_attempt(:'final_three',
   jsonb_build_array(
     jsonb_build_object('questionId','d2222222-2222-4222-8222-222222222221','optionId',(select o.id from public.question_options o where o.question_id = 'd2222222-2222-4222-8222-222222222221' and o.position = 2)),
@@ -588,8 +614,15 @@ select public.submit_quiz_attempt(:'final_three',
 
 select harness.check(
   (select state from public.quiz_attempts where id = :'final_three') = 'scored'
-  and (select count(*) from public.quiz_attempts where quiz_id = 'b2222222-2222-4222-8222-222222222222' and state = 'in_progress') = 0,
-  'a scored attempt does not stay open and block the next one');
+  and (select count(*) from public.quiz_attempts where quiz_id = 'b2222222-2222-4222-8222-222222222222' and state = 'in_progress') = 0
+  and (select max(score) from public.quiz_attempts where quiz_id = 'b2222222-2222-4222-8222-222222222222') = 75,
+  'submission scores once, closes resume, and preserves the earlier best passing score');
+
+select public.save_quiz_progress(:'final_three', '[]'::jsonb, 0, 2) as scored_save \gset
+select harness.check(
+  (:'scored_save'::json ->> 'saved') = 'false'
+  and (:'scored_save'::json ->> 'state') = 'scored',
+  'submitted attempts reject later draft edits');
 
 select harness.expect_error(
   'select public.start_quiz_attempt(''b2222222-2222-4222-8222-222222222222'', ''en'')',
@@ -613,6 +646,14 @@ reset role;
 
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}', false);
+select harness.expect_error(
+  format('select public.quiz_payload(%L)', :'final_three'),
+  'Attempt not available',
+  'another student cannot resume an attempt');
+select harness.expect_error(
+  format('select public.save_quiz_progress(%L, ''[]''::jsonb, 0, 99)', :'final_three'),
+  'Attempt not available',
+  'another student cannot edit an attempt');
 select harness.check(
   (select count(*) from public.quiz_attempts) = 0
   and (select count(*) from public.module_progress) = 0
