@@ -3,7 +3,10 @@
 -- Admin API, then uses these service-role-only helpers to revoke refresh
 -- sessions and write an audit event. auth.users is never modified with SQL.
 
-create table private.admin_password_change_limits (
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create table if not exists private.admin_password_change_limits (
   actor_user uuid not null,
   window_start timestamptz not null,
   request_count integer not null default 1 check (request_count > 0),
