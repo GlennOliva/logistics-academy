@@ -57,15 +57,24 @@ export function ChangePasswordDialog({ target, onClose, onCompleted }: Props) {
     }
 
     setSubmitting(true)
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+    if (sessionError || !accessToken) {
+      setSubmitting(false)
+      setError('Your administrator session has expired. Sign in again before changing a password.')
+      return
+    }
+
     const { data, error: invokeError } = await supabase.functions.invoke('admin-change-password', {
       body: { targetUserId: target.id, newPassword: password },
+      headers: { Authorization: `Bearer ${accessToken}` },
     })
     setSubmitting(false)
 
     if (invokeError) {
       const failure = await edgeFunctionFailure(
         invokeError,
-        'The password change could not be confirmed. Do not assume it succeeded.',
+        'The password-change response could not be confirmed. The password may already have changed; verify the user\'s sign-in state before retrying.',
       )
       setError(failure.message)
       return

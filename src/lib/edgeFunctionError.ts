@@ -12,8 +12,7 @@ export async function edgeFunctionFailure(
 
   const context = 'context' in error ? error.context : null
   if (!(context instanceof Response)) {
-    const message = 'message' in error && typeof error.message === 'string' ? error.message : fallback
-    return { message: message || fallback, status: null }
+    return { message: fallback, status: null }
   }
 
   let message = fallback

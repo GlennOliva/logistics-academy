@@ -3,15 +3,21 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_MAX_LENGTH = 72
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const APP_ORIGINS = new Set([
+  'https://logistics-academy-orpin.vercel.app',
+  'http://localhost:5173',
+  ...(Deno.env.get('APP_ORIGINS') ?? '').split(',').map((value) => value.trim()).filter(Boolean),
+])
 
 function cors(origin: string | null) {
-  const allowed = (Deno.env.get('APP_ORIGINS') ?? '').split(',').map((value) => value.trim()).filter(Boolean)
-  return {
-    'Access-Control-Allow-Origin': origin && allowed.includes(origin) ? origin : allowed[0] ?? '',
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   }
+  if (origin && APP_ORIGINS.has(origin)) headers['Access-Control-Allow-Origin'] = origin
+  return headers
 }
 
 function response(body: Record<string, unknown>, status: number, headers: Record<string, string>) {

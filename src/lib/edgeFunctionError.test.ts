@@ -18,4 +18,16 @@ describe('edgeFunctionFailure', () => {
       status: 500,
     })
   })
+
+  it('uses the caller fallback when no response confirms the outcome', async () => {
+    await expect(
+      edgeFunctionFailure(
+        { message: 'Failed to send a request to the Edge Function' },
+        'The response could not be confirmed.',
+      ),
+    ).resolves.toEqual({
+      message: 'The response could not be confirmed.',
+      status: null,
+    })
+  })
 })
