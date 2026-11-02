@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import type { AdminPasswordChangeOutcome } from '../lib/adminPassword'
+import {
+  ADMIN_STUDENTS_PAGE_SIZE,
+  filterAdminStudents,
+  paginateAdminStudents,
+} from '../lib/adminStudents'
 import { supabase, supabasePublishableKey, supabaseUrl } from '../lib/supabase'
 import { formatCentavos, formatManilaDate, formatManilaDateTime, statusLabel } from '../lib/payment'
 import { useResource, type ResourceResult } from '../lib/useResource'
@@ -30,20 +35,37 @@ type StudentRow = {
 const defaultReportThroughDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 const defaultReportFromDate = new Date(new Date().getTime() - 29 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
+function directoryErrorMessage(error: { code?: string; message: string }) {
+  if (error.code === 'PGRST202') {
+    return 'The admin user directory is not installed on the server. Apply pending Supabase migrations, reload the PostgREST schema cache, then choose Retry.'
+  }
+  return error.message
+}
+
 export function AdminStudents() {
   const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [busy, setBusy] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [passwordTarget, setPasswordTarget] = useState<StudentRow | null>(null)
 
   const fetcher = useCallback(async (): Promise<ResourceResult<StudentView>> => {
-    const { data: course } = await supabase.from('courses').select('id').eq('slug', 'logistics-101').maybeSingle()
+    const { data: course, error: courseError } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('slug', 'logistics-101')
+      .maybeSingle()
+    if (courseError) return { value: { courseId: null, students: [] }, error: courseError.message }
     if (!course) return { value: { courseId: null, students: [] }, error: 'Course not found.' }
 
     const directoryResult = await supabase.rpc('admin_user_directory')
     if (directoryResult.error) {
-      return { value: { courseId: course.id, students: [] }, error: directoryResult.error.message }
+      return {
+        value: { courseId: course.id, students: [] },
+        error: directoryErrorMessage(directoryResult.error),
+      }
     }
 
     const [enrollmentResult, orderResult, submissionResult] = await Promise.all([
@@ -51,6 +73,10 @@ export function AdminStudents() {
       supabase.from('orders').select('id,user_id,price_centavos'),
       supabase.from('payment_submissions').select('id,order_id,status,created_at'),
     ])
+    const detailError = enrollmentResult.error ?? orderResult.error ?? submissionResult.error
+    if (detailError) {
+      return { value: { courseId: course.id, students: [] }, error: detailError.message }
+    }
 
     const enrollments = enrollmentResult.data ?? []
     const orders = orderResult.data ?? []
@@ -88,20 +114,24 @@ export function AdminStudents() {
     return { value: { courseId: course.id, students }, error: '' }
   }, [])
 
-  const { value, error, loading, reload } = useResource(fetcher, { courseId: null, students: [] })
+  const { value, error, loading, loaded, reload } = useResource(fetcher, {
+    courseId: null,
+    students: [],
+  })
   const courseId = value.courseId
   const students = value.students
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return students
-    return students.filter(
-      (student) =>
-        student.full_name.toLowerCase().includes(term) ||
-        student.user_id.toLowerCase().includes(term) ||
-        (student.email ? student.email.toLowerCase().includes(term) : false),
-    )
-  }, [search, students])
+  const filtered = useMemo(() => filterAdminStudents(students, search), [search, students])
+  const pagination = useMemo(() => paginateAdminStudents(filtered, page), [filtered, page])
+
+  const retry = useCallback(async () => {
+    setRetrying(true)
+    try {
+      await reload()
+    } finally {
+      setRetrying(false)
+    }
+  }, [reload])
 
   const grantEnrollment = useCallback(
     async (userId: string, grantKind: 'complimentary' | 'external_payment') => {
@@ -184,27 +214,59 @@ export function AdminStudents() {
       <p className="eyebrow">Administration</p>
       <h1>Students.</h1>
 
-      <section className="metric-row">
-        <div><strong>{counts.students}</strong><small>registered students</small></div>
-        <div><strong>{counts.active}</strong><small>active enrollments</small></div>
-        <div><strong>{counts.pending}</strong><small>payments needing review</small></div>
-        <div><strong>{counts.suspended}</strong><small>suspended accounts</small></div>
-      </section>
+      {loaded && !error && (
+        <section className="metric-row">
+          <div><strong>{counts.students}</strong><small>registered students</small></div>
+          <div><strong>{counts.active}</strong><small>active enrollments</small></div>
+          <div><strong>{counts.pending}</strong><small>payments needing review</small></div>
+          <div><strong>{counts.suspended}</strong><small>suspended accounts</small></div>
+        </section>
+      )}
 
       <label className="field">
         <span>Search by name, email or user id</span>
-        <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" />
+        <input
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value)
+            setPage(1)
+          }}
+          type="search"
+          disabled={!loaded || Boolean(error)}
+        />
       </label>
 
-      {(message || error) && <p className="status">{message || error}</p>}
-      {loading && <p className="status" role="status">Loading students…</p>}
+      {message && <p className="status">{message}</p>}
+      {loading && (
+        <p className="status" role="status">Loading students…</p>
+      )}
+      {retrying && <p className="status" role="status">Retrying…</p>}
 
-      {!loading && filtered.length === 0 && (
-        <div className="empty"><h2>No matching students</h2><p>Adjust the search.</p></div>
+      {error && (
+        <div className="empty" role="alert">
+          <h2>Students could not be loaded</h2>
+          <p>{error}</p>
+          <button className="secondary" onClick={() => void retry()} disabled={retrying}>
+            Retry
+          </button>
+        </div>
       )}
 
-      <div className="table-list">
-        {filtered.map((student) => (
+      {loaded && !error && filtered.length === 0 && (
+        <div className="empty">
+          <h2>{students.length === 0 ? 'No students yet' : 'No matching students'}</h2>
+          <p>
+            {students.length === 0
+              ? 'Registered students will appear here.'
+              : 'Try a different name, email, or user ID.'}
+          </p>
+        </div>
+      )}
+
+      {loaded && !error && filtered.length > 0 && (
+        <>
+          <div className="table-list">
+            {pagination.items.map((student) => (
           <article key={student.user_id}>
             <div>
               <strong>{student.full_name}</strong>
@@ -300,8 +362,33 @@ export function AdminStudents() {
               )}
             </div>
           </article>
-        ))}
-      </div>
+            ))}
+          </div>
+
+          {pagination.total > ADMIN_STUDENTS_PAGE_SIZE && (
+            <div className="filter-bar">
+              <button
+                className="secondary"
+                onClick={() => setPage(Math.max(1, pagination.currentPage - 1))}
+                disabled={pagination.currentPage <= 1}
+              >
+                Previous
+              </button>
+              <p className="fine">
+                Page {pagination.currentPage} of {pagination.pageCount} · Showing {pagination.start}-
+                {pagination.end} of {pagination.total}
+              </p>
+              <button
+                className="secondary"
+                onClick={() => setPage(Math.min(pagination.pageCount, pagination.currentPage + 1))}
+                disabled={pagination.currentPage >= pagination.pageCount}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
       <p className="fine">
         Suspending an account takes effect at the database, not just in this interface: protected

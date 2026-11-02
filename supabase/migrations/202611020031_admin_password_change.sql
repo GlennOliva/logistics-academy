@@ -60,7 +60,7 @@ declare
   current_count integer;
   current_window timestamptz := to_timestamp(floor(extract(epoch from now()) / 600) * 600);
 begin
-  if actor_user is null or not public.is_admin(actor_user) then
+  if $1 is null or not public.is_admin($1) then
     raise exception 'Administrator role required';
   end if;
 
@@ -68,8 +68,8 @@ begin
   where window_start < now() - interval '1 hour';
 
   insert into private.admin_password_change_limits (actor_user, window_start, request_count)
-  values (actor_user, current_window, 1)
-  on conflict (actor_user, window_start) do update
+  values ($1, current_window, 1)
+  on conflict on constraint admin_password_change_limits_pkey do update
     set request_count = private.admin_password_change_limits.request_count + 1
   returning request_count into current_count;
 

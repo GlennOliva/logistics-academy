@@ -17,6 +17,7 @@
     "quiz:verify:hosted": "node scripts/verify-hosted-final-quiz.mjs",
     "provision:admin:prepare": "node scripts/prepare-admin-provisioning-input.mjs",
     "provision:admin": "node scripts/provision-initial-admin.mjs",
+    "admin:password:reset": "node scripts/reset-admin-password.mjs",
     "auth:test:no-confirm": "node scripts/set-test-auth-confirmations.mjs",
     "auth:verify:admin-browser": "node scripts/verify-admin-browser-login.mjs",
     "preview": "vite preview"

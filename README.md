@@ -59,6 +59,16 @@ ALLOW_ADMIN_PROVISIONING=1 npm run provision:admin
 
 The preparation command prompts invisibly for the service-role key and initial password. If the identity already exists, provisioning does not use the prepared password to update it; it uses it only to verify login. The recipient must change an initial development password through the recovery flow before production use. Production provisioning requires owner authorization; these commands are not migrations and must never run automatically in CI/CD.
 
+### Reset an existing admin password
+
+From the repository root in a trusted interactive terminal:
+
+```bash
+ALLOW_ADMIN_PASSWORD_RESET=1 npm run admin:password:reset
+```
+
+The command prompts for the Supabase URL, exact admin email, service-role key, new password, and confirmation. The service-role key and passwords are never echoed, printed, or saved. It refuses unless the URL project ref matches `supabase/.temp/project-ref`, the Auth user already exists, and that user already has the active database admin role. It updates only the Auth password, then verifies password login and the `is_admin` RPC. It does not create users, change roles or email confirmation, revoke sessions, or write application data.
+
 ## Architecture
 
 - React Router handles public, auth, student and admin route composition.
