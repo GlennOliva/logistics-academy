@@ -1435,6 +1435,10 @@ export type Database = {
         Args: { reason: string; target_module: string }
         Returns: Json
       }
+      admin_consume_password_change_rate_limit: {
+        Args: { actor_user: string }
+        Returns: boolean
+      }
       admin_edit_module: {
         Args: {
           apply_to_existing?: boolean
@@ -1461,6 +1465,10 @@ export type Database = {
       }
       admin_finalize_material_version_purge: {
         Args: { caller_user: string; target_translation: string }
+        Returns: Json
+      }
+      admin_finalize_password_change: {
+        Args: { caller_user: string; target_user: string }
         Returns: Json
       }
       admin_financial_ledger: {
@@ -1500,6 +1508,16 @@ export type Database = {
       admin_purge_module: {
         Args: { reason: string; target_module: string }
         Returns: Json
+      }
+      admin_record_password_change: {
+        Args: {
+          caller_user: string
+          target_user: string
+          outcome: string
+          sessions_revoked?: boolean
+          sessions_deleted?: number
+        }
+        Returns: number
       }
       admin_request_material_version_purge: {
         Args: {
@@ -1561,6 +1579,17 @@ export type Database = {
           target_translation: string
         }
         Returns: undefined
+      }
+      admin_user_directory: {
+        Args: never
+        Returns: {
+          account_status: Database["public"]["Enums"]["account_status"]
+          created_at: string
+          email: string
+          full_name: string
+          preferred_language: Database["public"]["Enums"]["app_language"]
+          user_id: string
+        }[]
       }
       certificate_eligibility: {
         Args: { target_enrollment: string }

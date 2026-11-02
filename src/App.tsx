@@ -560,9 +560,16 @@ function AuthShell({
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const notice =
+    location.state &&
+    typeof location.state === "object" &&
+    "notice" in location.state
+      ? String((location.state as { notice?: unknown }).notice ?? "")
+      : "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(notice);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isSupabaseConfigured) {

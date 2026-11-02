@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
+import type { AdminPasswordChangeOutcome } from '../lib/adminPassword'
 import { supabase, supabasePublishableKey, supabaseUrl } from '../lib/supabase'
 import { formatCentavos, formatManilaDate, formatManilaDateTime, statusLabel } from '../lib/payment'
 import { useResource, type ResourceResult } from '../lib/useResource'
+import { ChangePasswordDialog } from './ChangePasswordDialog'
 
 type StudentView = {
   courseId: string | null
@@ -13,6 +15,7 @@ type StudentView = {
 type StudentRow = {
   user_id: string
   full_name: string
+  email: string
   preferred_language: string
   account_status: string
   created_at: string
@@ -28,20 +31,20 @@ const defaultReportThroughDate = new Date().toLocaleDateString('en-CA', { timeZo
 const defaultReportFromDate = new Date(new Date().getTime() - 29 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
 export function AdminStudents() {
+  const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
+  const [passwordTarget, setPasswordTarget] = useState<StudentRow | null>(null)
 
   const fetcher = useCallback(async (): Promise<ResourceResult<StudentView>> => {
     const { data: course } = await supabase.from('courses').select('id').eq('slug', 'logistics-101').maybeSingle()
     if (!course) return { value: { courseId: null, students: [] }, error: 'Course not found.' }
 
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('id,full_name,preferred_language,account_status,created_at')
-      .order('created_at', { ascending: false })
-
-    if (error) return { value: { courseId: course.id, students: [] }, error: error.message }
+    const directoryResult = await supabase.rpc('admin_user_directory')
+    if (directoryResult.error) {
+      return { value: { courseId: course.id, students: [] }, error: directoryResult.error.message }
+    }
 
     const [enrollmentResult, orderResult, submissionResult] = await Promise.all([
       supabase.from('enrollments').select('id,user_id,status,granted_at').eq('course_id', course.id),
@@ -57,22 +60,17 @@ export function AdminStudents() {
     const ownerOfOrder = new Map(orders.map((order) => [order.id, order.user_id]))
     const priceOfOrder = new Map(orders.map((order) => [order.id, order.price_centavos]))
 
-    const students: StudentRow[] = ((profiles ?? []) as {
-      id: string
-      full_name: string
-      preferred_language: string
-      account_status: string
-      created_at: string
-    }[]).map((profile) => {
-      const enrollment = enrollments.find((row) => row.user_id === profile.id) ?? null
-      const own = submissions.filter((row) => ownerOfOrder.get(row.order_id) === profile.id)
+    const students: StudentRow[] = (directoryResult.data ?? []).map((profile) => {
+      const enrollment = enrollments.find((row) => row.user_id === profile.user_id) ?? null
+      const own = submissions.filter((row) => ownerOfOrder.get(row.order_id) === profile.user_id)
       const latest = own.reduce<(typeof own)[number] | null>(
         (newest, row) => (!newest || row.created_at > newest.created_at ? row : newest),
         null,
       )
       return {
-        user_id: profile.id,
+        user_id: profile.user_id,
         full_name: profile.full_name,
+        email: profile.email ?? '',
         preferred_language: profile.preferred_language,
         account_status: profile.account_status,
         created_at: profile.created_at,
@@ -98,7 +96,10 @@ export function AdminStudents() {
     const term = search.trim().toLowerCase()
     if (!term) return students
     return students.filter(
-      (student) => student.full_name.toLowerCase().includes(term) || student.user_id.includes(term),
+      (student) =>
+        student.full_name.toLowerCase().includes(term) ||
+        student.user_id.toLowerCase().includes(term) ||
+        (student.email ? student.email.toLowerCase().includes(term) : false),
     )
   }, [search, students])
 
@@ -157,6 +158,17 @@ export function AdminStudents() {
     [reload],
   )
 
+  const handlePasswordCompleted = useCallback(
+    async (outcome: AdminPasswordChangeOutcome) => {
+      setMessage(outcome.message)
+      if (outcome.complete && outcome.isSelf) {
+        await supabase.auth.signOut({ scope: 'local' })
+        navigate('/login', { replace: true, state: { notice: outcome.message } })
+      }
+    },
+    [navigate],
+  )
+
   const counts = useMemo(
     () => ({
       students: students.length,
@@ -180,7 +192,7 @@ export function AdminStudents() {
       </section>
 
       <label className="field">
-        <span>Search by name or user id</span>
+        <span>Search by name, email or user id</span>
         <input value={search} onChange={(event) => setSearch(event.target.value)} type="search" />
       </label>
 
@@ -196,6 +208,7 @@ export function AdminStudents() {
           <article key={student.user_id}>
             <div>
               <strong>{student.full_name}</strong>
+              {student.email && <p>{student.email}</p>}
               <p>
                 {statusLabel(student.preferred_language)} · account {statusLabel(student.account_status)}
               </p>
@@ -275,6 +288,13 @@ export function AdminStudents() {
                   Restore account
                 </button>
               )}
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => setPasswordTarget(student)}
+              >
+                Change Password
+              </button>
               {student.pending_payments > 0 && (
                 <Link className="secondary" to="/admin/payments">Review payments</Link>
               )}
@@ -286,9 +306,22 @@ export function AdminStudents() {
       <p className="fine">
         Suspending an account takes effect at the database, not just in this interface: protected
         operations check account status on every call, so an already-issued session stops working.
-        Trigger a password reset from the Supabase dashboard rather than here; passwords are never
-        retrieved or displayed.
+        Changing a password here runs through an admin-checked Edge Function, updates the user,
+        revokes their refresh sessions and writes an audit event. Access tokens already issued
+        remain valid until they expire. Passwords are never retrieved or displayed.
       </p>
+
+      {passwordTarget && (
+        <ChangePasswordDialog
+          target={{
+            id: passwordTarget.user_id,
+            fullName: passwordTarget.full_name,
+            email: passwordTarget.email,
+          }}
+          onClose={() => setPasswordTarget(null)}
+          onCompleted={(outcome) => void handlePasswordCompleted(outcome)}
+        />
+      )}
     </div>
   )
 }

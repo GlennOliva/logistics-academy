@@ -1142,6 +1142,116 @@ select harness.check(
   and (select count(*) from public.email_delivery_events where outbox_id = :'expired_final_outbox_id' and event_type = 'failed') = 1,
   'an expired final-attempt lease is failed without an unbounded sixth claim');
 
+-- ---------------------------------------------------------------------------
+-- Administrative password changes: directory email access, backend role
+-- checks, rate limiting, refresh-session revocation, and credential-free audit.
+insert into auth.sessions (id, user_id) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', '11111111-1111-4111-8111-111111111111'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3', '22222222-2222-4222-8222-222222222222');
+
+set role anon;
+select harness.expect_denied(
+  'select * from public.admin_user_directory()',
+  'anonymous callers cannot read the admin user directory');
+reset role;
+
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"99999999-9999-4999-8999-999999999999","role":"authenticated"}', false);
+select harness.check(
+  exists (
+    select 1 from public.admin_user_directory()
+    where user_id = '11111111-1111-4111-8111-111111111111'
+      and email = 'student-a@example.test'
+  ),
+  'an administrator can read the directory email needed by the password dialog');
+
+select set_config('request.jwt.claims', '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}', false);
+select harness.expect_error(
+  'select * from public.admin_user_directory()',
+  'Administrator role required',
+  'a student cannot read the admin user directory');
+select harness.expect_denied(
+  'select public.admin_finalize_password_change(''99999999-9999-4999-8999-999999999999'', ''11111111-1111-4111-8111-111111111111'')',
+  'a browser session cannot call the service-role session-revocation helper');
+reset role;
+
+set role service_role;
+delete from private.admin_password_change_limits;
+select harness.check(
+  (
+    select bool_and(public.admin_consume_password_change_rate_limit('99999999-9999-4999-8999-999999999999'))
+    from generate_series(1, 10)
+  ),
+  'an administrator can perform ten password-change requests in a rate-limit window');
+select harness.check(
+  not public.admin_consume_password_change_rate_limit('99999999-9999-4999-8999-999999999999'),
+  'the eleventh password-change request in the same window is rate limited');
+select harness.expect_error(
+  'select public.admin_finalize_password_change(''11111111-1111-4111-8111-111111111111'', ''22222222-2222-4222-8222-222222222222'')',
+  'Administrator role required',
+  'the service role cannot reset a password on behalf of a non-administrator');
+select harness.expect_error(
+  'select public.admin_record_password_change(''11111111-1111-4111-8111-111111111111'', ''22222222-2222-4222-8222-222222222222'', ''password_updated'', true, 0)',
+  'Administrator role required',
+  'the service role cannot write a password-change audit event for a non-administrator');
+
+select public.admin_finalize_password_change(
+  '99999999-9999-4999-8999-999999999999',
+  '11111111-1111-4111-8111-111111111111'
+) \gset password_change_
+
+select harness.check(
+  (select count(*) from auth.sessions where user_id = '11111111-1111-4111-8111-111111111111') = 0
+  and (select count(*) from auth.sessions where user_id = '22222222-2222-4222-8222-222222222222') = 1,
+  'session revocation removes only the target user refresh sessions');
+select harness.check(
+  exists (
+    select 1 from public.audit_logs
+    where actor_id = '99999999-9999-4999-8999-999999999999'
+      and target_type = 'user'
+      and target_id = '11111111-1111-4111-8111-111111111111'
+      and action = 'auth.password_changed'
+      and metadata ->> 'outcome' = 'password_updated'
+      and (metadata ->> 'sessions_revoked')::boolean
+  ),
+  'a completed password change is audited with actor, target, action and outcome');
+select harness.check(
+  not exists (
+    select 1 from public.audit_logs
+    where action = 'auth.password_changed'
+      and (metadata ? 'password' or metadata ? 'new_password' or metadata ? 'access_token' or metadata ? 'service_role_key')
+  ),
+  'password-change audit records contain no credentials');
+select harness.check(
+  (select email from auth.users where id = '11111111-1111-4111-8111-111111111111') = 'student-a@example.test'
+  and (select confirmed_at from auth.users where id = '11111111-1111-4111-8111-111111111111') is null
+  and exists (select 1 from public.profiles where id = '11111111-1111-4111-8111-111111111111')
+  and exists (select 1 from public.user_roles where user_id = '99999999-9999-4999-8999-999999999999' and role = 'admin'),
+  'the backend reset leaves email confirmation, profile and administrator role intact');
+
+select public.admin_record_password_change(
+  '99999999-9999-4999-8999-999999999999',
+  '11111111-1111-4111-8111-111111111111',
+  'password_updated_sessions_not_revoked',
+  false,
+  0
+);
+select harness.check(
+  exists (
+    select 1 from public.audit_logs
+    where action = 'auth.password_changed'
+      and metadata ->> 'outcome' = 'password_updated_sessions_not_revoked'
+      and not (metadata ->> 'sessions_revoked')::boolean
+  ),
+  'a partial password change is audited without being recorded as full success');
+
+select harness.expect_error(
+  'select public.admin_record_password_change(''99999999-9999-4999-8999-999999999999'', ''11111111-1111-4111-8111-111111111111'', ''unsupported'', false, 0)',
+  'Unsupported password-change outcome',
+  'an unsupported audit outcome is refused');
+reset role;
+
 update public.profiles
 set account_status = 'suspended'
 where id = '99999999-9999-4999-8999-999999999999';

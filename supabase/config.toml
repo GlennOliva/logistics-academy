@@ -460,6 +460,11 @@ verify_jwt = false
 [functions.admin-report-csv]
 verify_jwt = true
 
+[functions.admin-change-password]
+# The function re-resolves the caller with getUser(), checks the database admin
+# role, validates the password policy, and keeps the service-role key server-side.
+verify_jwt = true
+
 [functions.email-outbox-worker]
 # Scheduler-only endpoint authenticated with EMAIL_WORKER_SECRET.
 verify_jwt = false
